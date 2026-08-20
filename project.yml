@@ -1,4 +1,4 @@
-name: ourlamp
+name: WebViewShell
 options:
   bundleIdPrefix: com.ourlamp
   deploymentTarget:
