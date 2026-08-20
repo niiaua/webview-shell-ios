@@ -38,6 +38,9 @@ final class WebViewController: UIViewController {
         webView.allowsLinkPreview = false
         webView.allowsBackForwardNavigationGestures = false
 
+        // 隐藏键盘顶部辅助栏（上一条/下一条/完成）
+        webView.configureToHideKeyboardAccessory()
+
         // 全屏铺满，不让系统自动加 inset
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.underPageBackgroundColor = .systemBackground
@@ -69,6 +72,17 @@ final class WebViewController: UIViewController {
     }
 
     override var preferredStatusBarStyle: UIStatusBarStyle { statusBarStyle }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        // 等内部结构就绪后再次尝试隐藏辅助栏（键盘弹出时会重新布局）
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.webView?.configureToHideKeyboardAccessory()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            self.webView?.configureToHideKeyboardAccessory()
+        }
+    }
 
     // MARK: - 加载
 
@@ -188,5 +202,43 @@ private extension UIColor {
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         guard getRed(&r, green: &g, blue: &b, alpha: &a) else { return false }
         return (0.299 * r + 0.587 * g + 0.114 * b) < 0.6
+    }
+}
+
+// MARK: - 隐藏键盘辅助栏（非公开 API，仅用于侧载无审核场景）
+
+private extension WKWebView {
+    /// 隐藏键盘顶部辅助栏（上一条/下一条/完成那条）。
+    /// 原理：WKWebView 内部有个私有的 inputAccessoryViewController，
+    /// 用 KVC 访问其 view，把高度压成接近 0，从而在视觉上消失。
+    func configureToHideKeyboardAccessory() {
+        // 常见私有访问路径：scrollView -> subviews -> 某个含 _inputAccessoryView 的容器
+        var target: UIView?
+        if let scrollView = value(forKey: "scrollView") as? UIScrollView {
+            if let subviews = scrollView.subviews.first as? UIView {
+                if let vc = subviews.value(forKey: "_inputAccessoryViewController") as? NSObject {
+                    target = vc.value(forKey: "view") as? UIView
+                }
+            }
+        }
+        // 兜底：在子视图里递归找带 inputAccessoryView 的层
+        if target == nil {
+            target = Self.findInputAccessoryRecursive(in: self)
+        }
+        target?.frame = CGRect(x: 0, y: 0, width: 0, height: 0)
+        target?.isHidden = true
+    }
+
+    /// 递归查找最底层那个 input accessory view（KVC 私有键）
+    private static func findInputAccessoryRecursive(in view: UIView) -> UIView? {
+        if let acc = view.value(forKey: "_inputAccessoryView") as? UIView {
+            return acc
+        }
+        for sub in view.subviews {
+            if let found = findInputAccessoryRecursive(in: sub) {
+                return found
+            }
+        }
+        return nil
     }
 }
