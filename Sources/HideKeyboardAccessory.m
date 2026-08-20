@@ -24,7 +24,7 @@
             target = [self findInputAccessoryViewIn:webView];
         }
 
-        // 路径3：通过 scrollView 里 WKContentView 的 private inputAccessoryViewController
+        // 路径3：scrollView 里 WKContentView 的 private inputAccessoryViewController
         if (target == nil) {
             UIScrollView *scrollView = (UIScrollView *)[webView valueForKey:@"scrollView"];
             if ([scrollView isKindOfClass:[UIScrollView class]]) {
@@ -42,17 +42,55 @@
             }
         }
 
+        // 若前面的路径都没找到，用「几何特征」扫描整个窗口：
+        // 辅助栏是一条浮在键盘上方、横向的窄条（通常高约 37~49pt、宽约屏宽）。
+        // 这条对系统版本免疫，不依赖私有 key 名，iOS 大版本升级也不怕。
+        if (target == nil || [target isKindOfClass:[UIView class]] == NO) {
+            target = [HideKeyboardAccessory findAccessoryBarInWindows];
+        }
+
         if (target != nil && [target isKindOfClass:[UIView class]]) {
-            target.frame = CGRectZero;
+            target.frame = CGRect(0, 0, 1, 1);
             target.hidden = YES;
-            // 有些版本需要把它移出可视区域才能彻底消失
-            target.alpha = 0.01;
             return YES;
         }
     } @catch (NSException *e) {
         return NO;
     }
     return NO;
+}
+
+/// 在 App 所有 window 里，找一个「键盘上方、横向窄条」的辅助栏视图。
+/// 用几何特征匹配：宽≈屏宽、高在 20~60pt 之间、且 y 坐标在屏幕底部区域。
++ (nullable UIView *)findAccessoryBarInWindows {
+    for (UIWindow *window in UIApplication.sharedApplication.windows) {
+        UIView *found = [self scanForAccessoryBar:window screen:window.bounds];
+        if (found) { return found; }
+    }
+    return nil;
+}
+
++ (nullable UIView *)scanForAccessoryBar:(UIView *)view screen:(CGRect)screen {
+    if (view == nil || view.isHidden) return nil;
+    @try {
+        CGRect f = view.frame;
+        // 键盘弹出时屏上通常有 2~3 个 window；取当前 keyWindow 的高度近似屏幕高
+        CGFloat screenH = screen.size.height;
+        // 辅助栏：接近全屏宽、高适中、位于屏底部附近（在键盘之上）
+        if (f.size.width > screen.size.width * 0.8 &&
+            f.size.height >= 20 && f.size.height <= 65 &&
+            f.origin.y > screenH * 0.5) {
+            return view;
+        }
+    } @catch (NSException *e) {
+        return nil;
+    }
+    // 递归子视图
+    for (UIView *sub in view.subviews) {
+        UIView *found = [self scanForAccessoryBar:sub screen:screen];
+        if (found) { return found; }
+    }
+    return nil;
 }
 
 + (nullable UIResponder *)findFirstResponder {
