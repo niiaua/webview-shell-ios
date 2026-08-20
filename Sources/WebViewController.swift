@@ -69,6 +69,28 @@ final class WebViewController: UIViewController {
         NotificationCenter.default.addObserver(
             self, selector: #selector(appDidBecomeActive),
             name: UIApplication.didBecomeActiveNotification, object: nil)
+
+        // 键盘弹出时（WKContentView 内部辅助栏结构已就绪）隐藏辅助栏
+        let center = NotificationCenter.default
+        center.addObserver(self, selector: #selector(keyboardWillShow(_:)),
+                           name: UIResponder.keyboardWillShowNotification, object: nil)
+        center.addObserver(self, selector: #selector(keyboardDidShow(_:)),
+                           name: UIResponder.keyboardDidShowNotification, object: nil)
+    }
+
+    @objc private func keyboardWillShow(_ note: Notification) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            guard let wv = self?.webView else { return }
+            _ = HideKeyboardAccessory.apply(toWebView: wv)
+        }
+    }
+
+    @objc private func keyboardDidShow(_ note: Notification) {
+        // 键盘完全弹出后，结构稳定，隐藏两次提高命中
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            guard let wv = self?.webView else { return }
+            _ = HideKeyboardAccessory.apply(toWebView: wv)
+        }
     }
 
     override var preferredStatusBarStyle: UIStatusBarStyle { statusBarStyle }
