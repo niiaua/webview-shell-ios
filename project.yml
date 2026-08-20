@@ -1,6 +1,6 @@
-name: WebViewShell
+name: ourlamp
 options:
-  bundleIdPrefix: com.example
+  bundleIdPrefix: com.ourlamp
   deploymentTarget:
     iOS: "16.0"
   createIntermediateGroups: true
@@ -29,7 +29,7 @@ targets:
           - "Info.plist"
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.webviewshell
+        PRODUCT_BUNDLE_IDENTIFIER: com.ourlamp.cc
         PRODUCT_NAME: WebViewShell
         INFOPLIST_FILE: Resources/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
