@@ -44,6 +44,9 @@ final class WebViewController: UIViewController {
         webView.isOpaque = false
         webView.backgroundColor = .clear
 
+        // 隐藏键盘顶部辅助栏（上一条/下一条/完成）。ObjC 实现内有异常兜底，绝不会崩。
+        _ = HideKeyboardAccessory.apply(toWebView: webView)
+
         let root = UIView()
         root.backgroundColor = .systemBackground
         root.addSubview(webView)
@@ -69,6 +72,17 @@ final class WebViewController: UIViewController {
     }
 
     override var preferredStatusBarStyle: UIStatusBarStyle { statusBarStyle }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        // WKWebView 内部结构就绪后再试几次，提高隐藏命中率（ObjC 兜底，不崩）
+        for delay in [0.1, 0.5, 1.5] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let wv = self?.webView else { return }
+                _ = HideKeyboardAccessory.apply(toWebView: wv)
+            }
+        }
+    }
 
     // MARK: - 加载
 
